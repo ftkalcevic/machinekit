@@ -1,0 +1,3 @@
+. ~/machinekit/scripts/rip-environment
+rm ~/machinekit/linuxcnc/configs/CRAMPS/pru-stepper.var
+linuxcnc ~/machinekit/linuxcnc/configs/CRAMPS/CRAMPS.ini
