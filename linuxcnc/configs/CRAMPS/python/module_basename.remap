@@ -1,0 +1,6 @@
+from interpreter import INTERP_OK
+from emccanon import MESSAGE
+
+def loadprobe(self, **words):
+    MESSAGE("Loadprobe loaded")
+    return INTERP_OK

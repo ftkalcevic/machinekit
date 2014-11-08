@@ -1,0 +1,47 @@
+o<probe> sub
+
+    ; grid probe
+
+    #<BedRadius> = #<_ini[PROBE]BED_RADIUS>
+    #<BedDiameter> = [2.0 * #<BedRadius>]
+    #<ProbeGrid> = #<_ini[PROBE]GRID>
+    #<_ZHeight> = #<_ini[PROBE]ZSTART>
+    #<_ProbeFeedRate> = #<_ini[PROBE]FEEDRATE>
+    #<_ProbeTipOffsetX> = #<_ini[PROBE]TIPOFFSETX>
+    #<_ProbeTipOffsetY> = #<_ini[PROBE]TIPOFFSETY>
+    #<_ProbeTipOffsetZ> = #<_ini[PROBE]TIPOFFSETZ>
+    
+    #<count> = FIX[ #<BedRadius> / #<ProbeGrid> ]
+
+    (PROBEOPEN probe.txt) 
+
+    #<dir> = 1
+    #<yi> = [-1 * #<count>]
+    o10 while [#<yi> LE #<count>]
+
+        #<xi> = [-1 * #<count>]
+        o20 while [#<xi> LE #<count>]
+
+            #<x> = [#<ProbeGrid> * #<dir> * #<xi>]
+            #<y> = [#<ProbeGrid> * #<yi>]
+
+            o30 if [ [ #<x> * #<x> + #<y> * #<y> ] LE [#<BedRadius> * #<BedRadius>] ]
+                o<probepoint> call [#<x>] [#<y>]
+
+            o30 endif
+
+            #<xi> = [#<xi> + 1]
+        
+        o20 endwhile
+
+        #<dir> = [-1 * #<dir>]
+        #<yi> = [#<yi> + 1]
+        
+    o10 endwhile
+
+    (PROBECLOSE)
+
+    G4 P0.5
+o<probe> endsub
+M2
+

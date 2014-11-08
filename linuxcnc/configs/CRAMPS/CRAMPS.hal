@@ -15,10 +15,11 @@ loadusr -w ./setup.sh
 # ###################################
 
 # kinematics
-loadrt lineardeltakins
+#loadrt trivkins
+loadrt lineardeltaprobekins size=4096
 
-net L lineardeltakins.L
-net R lineardeltakins.R
+net L lineardeltaprobekins.L
+net R lineardeltaprobekins.R
 
 sets L 215
 sets R 105.25
