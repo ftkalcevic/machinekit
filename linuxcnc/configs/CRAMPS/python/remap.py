@@ -6,6 +6,7 @@ from emccanon import MESSAGE
 cmd = "python/load_probe_data.py"
 
 def probe_prolog(self, **words):
+    #if emccannon.running:
     os.system( "halcmd setp lineardeltaprobekins.enable-z-correct 0" )
     return INTERP_OK
 

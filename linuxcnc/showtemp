@@ -1,0 +1,10 @@
+#!/bin/sh
+
+while [ 1 ]; do
+
+halcmd gets e0.temp.meas
+halcmd gets bed.temp.meas
+
+sleep 1
+
+done

@@ -1,0 +1,18 @@
+component at "'at speed' like component";
+pin in float in;
+pin in float set;
+pin out bit at;
+function _;
+variable double last_set;
+license "GPL";
+;;
+FUNCTION(_) 
+{
+    if ( last_set != set )
+    {
+        at = 0;
+        last_set = set;
+    }
+    if ( in > set )
+        at = 1;
+}

@@ -6,3 +6,5 @@ net e0.temp.meas => pyvcp.E0.Temp
 net bed.temp.set  => pyvcp.Bed.Temp.set
 net bed.temp.meas => pyvcp.Bed.Temp
 net probe => pyvcp.LED.Probe
+
+net AtTemp => pyvcp.LED.AtTemp

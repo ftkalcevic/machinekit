@@ -1,37 +1,45 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <pyvcp>
-<hbox>
-  <label>
-    <text>"Extruder Temp:"</text>
-  </label>
-
-  <number>
-    <halpin>"E0.Temp.set"</halpin>
-    <format>"3.1f"</format>
-  </number>
-</hbox>
+  <hbox>
+    <label>
+      <text>"Extruder Temp:"</text>
+    </label>
+    <number>
+      <halpin>"E0.Temp.set"</halpin>
+      <format>"3.1f"</format>
+    </number>
+  </hbox>
   <bar>
     <halpin>"E0.Temp"</halpin>
-    <max_>300</max_>
+     <max_>300</max_>
   </bar>
-<hbox>
-  <label>
-    <text>"Bed Temp:"</text>
-  </label>
-
-  <number>
-    <halpin>"Bed.Temp.set"</halpin>
-    <format>"3.1f"</format>
-  </number>
-</hbox>
+  <hbox>
+    <label>
+      <text>"Bed Temp:"</text>
+    </label>
+    <number>
+      <halpin>"Bed.Temp.set"</halpin>
+      <format>"3.1f"</format>
+    </number>
+  </hbox>
   <bar>
     <halpin>"Bed.Temp"</halpin>
     <max_>300</max_>
   </bar>
-  <label text="Probe: " />
-  <led>
-    <halpin>"LED.Probe"</halpin>
-    <on_color>"green"</on_color>
-    <off_color>"dark green"</off_color>
-  </led>
+  <hbox>
+    <label text="Probe: " />
+    <led>
+      <halpin>"LED.Probe"</halpin>
+      <on_color>"green"</on_color>
+      <off_color>"dark green"</off_color>
+    </led>
+  </hbox>
+  <hbox>
+    <label text="At Temp: " />
+    <led>
+      <halpin>"LED.AtTemp"</halpin>
+      <on_color>"red"</on_color>
+      <off_color>"dark red"</off_color>
+    </led>
+  </hbox>
 </pyvcp>

@@ -34,6 +34,9 @@ loadrt hal_bb_gpio output_pins=116,122,123,124,125,126,214,223,225 input_pins=10
 loadrt [PRUCONF](DRIVER) prucode=$(HAL_RTMOD_DIR)/[PRUCONF](PRUBIN) [PRUCONF](CONFIG)
 loadrt pid num_chan=2
 loadrt limit1 count=2
+loadrt at count=2
+loadrt and4 count=1
+loadrt not count=1
 
 # Python user-mode HAL module to read ADC value and generate a thermostat output for PWM
 # t = Thermistor table (only epcos_B57560G1104 or 1 supported for now)
@@ -54,6 +57,10 @@ addf limit1.0                             servo-thread
 addf limit1.1                             servo-thread
 addf [PRUCONF](DRIVER).update             servo-thread
 addf bb_gpio.write                        servo-thread
+addf at.0                                 servo-thread
+addf at.1                                 servo-thread
+addf not.0                                servo-thread
+addf and4.0                               servo-thread
        
 
 # ######################################################
@@ -383,6 +390,9 @@ net e0.heater  => limit1.0.in
 net e0.heaterl <= limit1.0.out
 net e0.heaterl => hal_pru_generic.pwmgen.00.out.01.value
 
+net e0.temp.set => at.0.set
+net e0.temp.meas => at.0.in
+
 # Limit heater PWM to positive values
 # PWM mimics hm2 implementation, which generates output for negative values
 setp limit1.0.min 0
@@ -398,6 +408,9 @@ net bed.heater  <= pid.1.output
 net bed.heater  => limit1.1.in
 net bed.heaterl <= limit1.1.out
 net bed.heaterl => hal_pru_generic.pwmgen.00.out.00.value
+
+net bed.temp.set => at.1.set
+net bed.temp.meas => at.1.in
 
 # Limit heater PWM to positive values
 # PWM mimics hm2 implementation, which generates output for negative values
@@ -425,3 +438,13 @@ setp pid.1.Dgain  0.0
 setp pid.1.maxerrorI 1.0
 setp pid.1.bias    0.5  
 setp pid.1.enable   1
+
+net e0.at at.0.at => and4.0.in0
+net bed.at at.1.at => and4.0.in1
+setp and4.0.in2 1
+setp and4.0.in3 1
+
+net AtTemp and4.0.out => not.0.in
+net temp.hold not.0.out => motion.feed-hold
+
+
