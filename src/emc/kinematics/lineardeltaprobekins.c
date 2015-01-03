@@ -129,13 +129,13 @@ static inline double z_correct(double x, double y)
     {
         old_enable = *(haldata->enable);
         move_count = MOVE_COUNT;
-        move_z = t - *(haldata->delta_z);
+        move_z = t;// - *(haldata->delta_z);
     }
 
     if ( move_count )
     {
         move_count--;
-        hal_float_t dz = move_z * (hal_float_t)(move_count) / MOVE_COUNT;
+        hal_float_t dz = move_z * (hal_float_t)(MOVE_COUNT - move_count) / MOVE_COUNT;
         t -= dz;
     }
     total_nsec += (rtapi_get_time() - start);
@@ -151,9 +151,8 @@ int kinematicsForward(const double *joints,
     set_geometry(*haldata->r, *haldata->l);
     kinematics_forward(joints,pos);
     if ( *(haldata->enable) )
-        pos->tran.z += z_correct( pos->tran.x, pos->tran.y );
-
-    return 0;
+        pos->tran.z -= z_correct( pos->tran.x, pos->tran.y );
+     return 0;
 }
 
 int kinematicsInverse(const EmcPose * pos,
@@ -166,9 +165,9 @@ int kinematicsInverse(const EmcPose * pos,
     if ( *(haldata->enable) )
     {
         double dz = z_correct(pos->tran.x, pos->tran.y);
-        joints[0] -= dz;
-        joints[1] -= dz;
-        joints[2] -= dz;
+        joints[0] += dz;
+        joints[1] += dz;
+        joints[2] += dz;
     }
     return 0;
 }
