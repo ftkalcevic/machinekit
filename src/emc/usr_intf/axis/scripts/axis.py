@@ -354,6 +354,7 @@ class NoPreview(Widget,GlCanonDraw):
         self.stat = linuxcnc.stat()
         GlCanonDraw(self.stat,None)
         #self.colors = self.RealDict()
+        self.after_id = None
 
     def __del__(self): pass
     def getRotateMode(self): return 0
@@ -365,7 +366,9 @@ class NoPreview(Widget,GlCanonDraw):
     def queue_select(self, event): pass
     def deselect(self, event): pass
     def select(self, event): pass
-    def get_joints_mode(self): return joints_mode()
+    def get_joints_mode(self): 
+        s.poll()
+        return joints_mode()
     def get_current_tool(self): return 0
     def is_lathe(self): return lathe
     def get_show_commanded(self): return vars.display_type.get()
@@ -382,9 +385,14 @@ class NoPreview(Widget,GlCanonDraw):
         return vars.highlight_line.get()
     def set_highlight_line(self, line): pass
     def tkRedraw(self, *dummy):
-        self.redraw()
+        if self.after_id:
+            # May need to upgrade to an instant redraw
+            self.after_cancel(self.after_id)
+        self.after_id = self.after_idle(self.actual_tkRedraw)
+
     def redraw_soon(self, *dummy):
-        self.redraw()
+        if self.after_id: return
+        self.after_id = self.after(50, self.actual_tkRedraw)
     def tkRedraw_perspective(self, *dummy): pass
     def tkRedraw_ortho(self, *dummy): pass
     def startRotate(self, event): pass
@@ -392,7 +400,9 @@ class NoPreview(Widget,GlCanonDraw):
     def tkRotate(self, event): pass
     def tkTranslateOrRotate(self, event): pass
     def tkRotateOrTranslate(self, event): pass
-    def actual_tkRedraw(self, *dummy): pass
+    def actual_tkRedraw(self, *dummy):
+        self.after_id = None
+        self.redraw()
     def get_show_program(self): return vars.show_program.get()
     def get_show_offsets(self): return vars.show_offsets.get()
     def get_show_extents(self): return vars.show_extents.get()
