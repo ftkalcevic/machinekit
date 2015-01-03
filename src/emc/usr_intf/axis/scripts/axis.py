@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/python
 #    This is a component of AXIS, a front-end for LinuxCNC
 #    Copyright 2004, 2005, 2006, 2007, 2008, 2009
 #    Jeff Epler <jepler@unpythonic.net> and Chris Radek <chris@timeguy.com>
@@ -140,6 +140,10 @@ mdi_history_max_entries = 1000
 mdi_history_save_filename =\
     inifile.find('DISPLAY', 'MDI_HISTORY_FILE') or "~/.axis_mdi_history"
 
+if (inifile.find("DISPLAY", "DISABLE_PREVIEW") or "0") == "1":
+    disablePreview = True
+else:
+    disablePreview = False
 
 feedrate_blackout = 0
 spindlerate_blackout = 0
@@ -332,6 +336,134 @@ def soft_limits():
     return (
         to_internal_units([fudge(ax[i]['min_position_limit']) for i in range(3)]),
         to_internal_units([fudge(ax[i]['max_position_limit']) for i in range(3)]))
+
+class NoPreview(Widget,GlCanonDraw):
+
+    class RealDict(dict):
+        def __init__(self, *args, **kwargs):
+            self.update(*args, **kwargs)
+
+        def __getitem__(self, key):
+            if key.endswith("_alpha"):
+                return 0.0
+            else:
+                return (0.0,0.0,0.0)
+
+    def __init__(self, master=None, cnf={}, **kw):
+        Widget.__init__(self, None, None )
+        self.stat = linuxcnc.stat()
+        GlCanonDraw(self.stat,None)
+        #self.colors = self.RealDict()
+
+    def __del__(self): pass
+    def getRotateMode(self): return 0
+    def get_font_info(self): return None
+    def get_resources(self): pass
+    def select_prime(self, event): pass
+    def select_cancel(self, event): pass
+    def select_fire(self, event): pass
+    def queue_select(self, event): pass
+    def deselect(self, event): pass
+    def select(self, event): pass
+    def get_joints_mode(self): return joints_mode()
+    def get_current_tool(self): return 0
+    def is_lathe(self): return lathe
+    def get_show_commanded(self): return vars.display_type.get()
+    def get_show_rapids(self): return vars.show_rapids.get()
+    def get_geometry(self): return geometry
+    def is_foam(self): return foam
+    def get_num_joints(self): return num_joints
+    def get_program_alpha(self): return vars.program_alpha.get()
+    def get_a_axis_wrapped(self): return a_axis_wrapped
+    def get_b_axis_wrapped(self): return b_axis_wrapped
+    def get_c_axis_wrapped(self): return c_axis_wrapped
+    def set_current_line(self, line): pass
+    def get_highlight_line(self):
+        return vars.highlight_line.get()
+    def set_highlight_line(self, line): pass
+    def tkRedraw(self, *dummy):
+        self.redraw()
+    def redraw_soon(self, *dummy):
+        self.redraw()
+    def tkRedraw_perspective(self, *dummy): pass
+    def tkRedraw_ortho(self, *dummy): pass
+    def startRotate(self, event): pass
+    def tkAutoSpin(self, event): pass
+    def tkRotate(self, event): pass
+    def tkTranslateOrRotate(self, event): pass
+    def tkRotateOrTranslate(self, event): pass
+    def actual_tkRedraw(self, *dummy): pass
+    def get_show_program(self): return vars.show_program.get()
+    def get_show_offsets(self): return vars.show_offsets.get()
+    def get_show_extents(self): return vars.show_extents.get()
+    def get_grid_size(self): return vars.grid_size.get()
+    def get_show_metric(self): return vars.metric.get()
+    def get_show_live_plot(self): return vars.show_live_plot.get()
+    def get_show_machine_speed(self): return vars.show_machine_speed.get()
+    def get_show_distance_to_go(self): return vars.show_distance_to_go.get()
+    def get_view(self): return 0
+    def get_show_relative(self): return vars.coord_type.get()
+    def get_show_limits(self): return vars.show_machine_limits.get()
+    def get_show_tool(self): return vars.show_tool.get()
+
+    def redraw(self):
+        return self.redraw_dro()
+
+    def redraw_dro(self):
+        self.stat.poll()
+        limit, homed, posstrs, droposstrs = self.posstrs()
+        
+        strs = droposstrs
+        text = widgets.numbers_text
+
+        font = "Courier 10 pitch"
+        if not hasattr(self, 'font_width'):
+            self.font_width = text.tk.call(
+                "font", "measure", (font, -100, "bold"), "0")
+            self.font_vertspace = text.tk.call(
+                "font", "metrics", (font, -100, "bold"), "-linespace") - 100
+            self.last_font = None
+        font_width = self.font_width
+        font_vertspace = self.font_vertspace
+
+        text.delete("0.0", "end")
+        t = strs[:]
+        i = 0
+        for ts in t:
+            if i < len(homed) and homed[i]:
+                t[i] += "*"
+            else:
+                t[i] += " "
+            if i < len(homed) and limit[i]:
+                t[i] += "!" # !!!1!
+            else:
+                t[i] += " "
+            i+=1
+            
+        text.insert("end", "\n".join(t))
+
+        window_height = text.winfo_height()
+        window_width = text.winfo_width()
+        dro_lines = len(strs)
+        dro_width = len(strs[0]) + 3
+        # pixels of height required, for "100 pixel" font
+        req_height = dro_lines * 100 + (dro_lines + 1) * font_vertspace
+        # pixels of width required, for "100 pixel" font
+        req_width = dro_width * font_width
+        height_ratio = float(window_height) / req_height
+        width_ratio = float(window_width) / req_width
+        ratio = min(height_ratio, width_ratio)
+        new_font = -int(100*ratio)
+        if new_font != self.last_font:
+            text.configure(font=(font, new_font, "bold"))
+            self.last_font = new_font
+
+    def pack(self,**options): pass
+    def set_view_p(event=None): pass
+    def set_centerpoint(self, x, y, z): pass
+    def load_preview(self, f, canon, unitcode, initcode, interpname): return 0,0
+    def get_foam_z(self): return 0
+    def get_foam_w(self): return 0
 
 class MyOpengl(GlCanonDraw, Opengl):
     def __init__(self, *args, **kw):
@@ -1218,6 +1350,9 @@ widgets = nf.Widgets(root_window,
     ("view_y", Button, ".toolbar.view_y"),
     ("view_p", Button, ".toolbar.view_p"),
     ("rotate", Button, ".toolbar.rotate"),
+    ("zoomin", Button, ".toolbar.view_zoomin"),
+    ("zoomout", Button, ".toolbar.view_zoomout"),
+    ("clear_plot", Button, ".toolbar.clear_plot"),
 
     ("feedoverride", Scale, pane_top + ".feedoverride.foscale"),
     ("spinoverride", Scale, pane_top + ".spinoverride.foscale"),
@@ -3023,7 +3158,10 @@ c.wait_complete()
 c.set_optional_stop(vars.optional_stop.get())
 c.wait_complete()
 
-o = MyOpengl(widgets.preview_frame, width=400, height=300, double=1, depth=1)
+if disablePreview:
+    o = NoPreview(widgets.preview_frame, width=400, height=300, double=1, depth=1)
+else:
+    o = MyOpengl(widgets.preview_frame, width=400, height=300, double=1, depth=1)
 o.last_line = 1
 o.pack(fill="both", expand=1)
 
@@ -3380,6 +3518,25 @@ if not has_limit_switch:
 forget(widgets.mist, "iocontrol.0.coolant-mist")
 forget(widgets.flood, "iocontrol.0.coolant-flood")
 forget(widgets.lubel, "iocontrol.0.coolant-flood", "iocontrol.0.coolant-mist")
+
+
+if disablePreview:
+    widgets.view_z.pack_forget()
+    widgets.view_z2.pack_forget()
+    widgets.view_x.pack_forget()
+    widgets.view_y.pack_forget()
+    widgets.view_p.pack_forget()
+    widgets.rotate.pack_forget()
+    widgets.zoomin.pack_forget()
+    widgets.zoomout.pack_forget()
+    widgets.clear_plot.pack_forget()
+    widgets.menu_view.delete(0, 5)
+    widgets.menu_view.delete(3, 9)
+    widgets.menu_view.delete(7, 8)
+    widgets.menu_view.delete(4, 4)  # Machine limits
+    widgets.right.raise_page("numbers")
+    widgets.right.delete("preview")
+
 
 rcfile = "~/.axisrc"
 user_command_file = inifile.find("DISPLAY", "USER_COMMAND_FILE") or ""

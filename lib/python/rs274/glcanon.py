@@ -1339,23 +1339,25 @@ class GlCanonDraw:
 
             droposstrs.append("")
 
-            for i in range(9):
-                index = s.g5x_index
-                if index<7:
-                    label = "G5%d" % (index+3)
-                else:
-                    label = "G59.%d" % (index-6)
+            if self.get_show_offsets():
+                for i in range(9):
+                    index = s.g5x_index
+                    if index<7:
+                        label = "G5%d" % (index+3)
+                    else:
+                        label = "G59.%d" % (index-6)
 
-                a = "XYZABCUVW"[i]
-                if s.axis_mask & (1<<i):
-                    droposstrs.append(offsetformat % (label, a, g5x_offset[i], a, g92_offset[i]))
-            droposstrs.append(rotformat % (label, 'R', s.rotation_xy))
+                    a = "XYZABCUVW"[i]
+                    if s.axis_mask & (1<<i):
+                        droposstrs.append(offsetformat % (label, a, g5x_offset[i], a, g92_offset[i]))
+                droposstrs.append(rotformat % (label, 'R', s.rotation_xy))
+                droposstrs.append("")
 
-            droposstrs.append("")
-            for i in range(9):
-                a = "XYZABCUVW"[i]
-                if s.axis_mask & (1<<i):
-                    droposstrs.append(rotformat % ("TLO", a, tlo_offset[i]))
+                for i in range(9):
+                    a = "XYZABCUVW"[i]
+                    if s.axis_mask & (1<<i):
+                        droposstrs.append(rotformat % ("TLO", a, tlo_offset[i]))
+                droposstrs.append("")
 
 
             if self.is_lathe():
@@ -1366,9 +1368,11 @@ class GlCanonDraw:
 
             if self.get_show_machine_speed():
                 posstrs.append(format % ("Vel", spd))
+                droposstrs.append(format % ("Vel", spd))
 
             if self.get_show_distance_to_go():
                 posstrs.append(format % ("DTG", dtg))
+                droposstrs.append(format % ("DTG", dtg))
 
             return limit, homed, posstrs, droposstrs
 
