@@ -42,4 +42,23 @@
       <off_color>"dark red"</off_color>
     </led>
   </hbox>
+  <hbox>
+    <label text="Elapsed Time:" />
+    <u32>
+        <halpin>"elapsed.hours"</halpin>
+        <format>"d"</format>
+    </u32>
+    <u32>
+        <halpin>"elapsed.mins"</halpin>
+        <format>"02d"</format>
+    </u32>
+    <u32>
+        <halpin>"elapsed.secs"</halpin>
+        <format>"02d"</format>
+    </u32>
+    <button>
+        <halpin>"elapsed.reset"</halpin>
+        <text>"Reset"</text>
+    </button>
+  </hbox>
 </pyvcp>

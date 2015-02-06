@@ -13,7 +13,7 @@ o<probe> sub
     
     #<count> = FIX[ #<BedRadius> / #<ProbeGrid> ]
 
-    (PROBEOPEN probe.txt) 
+    (PROBEOPEN /tmp/probe.txt) 
 
     #<dir> = 1
     #<yi> = [-1 * #<count>]

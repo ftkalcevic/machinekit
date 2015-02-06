@@ -1,0 +1,41 @@
+//   This is a component for EMC2 HAL
+//   Copyright 2008 Paul Willutzki <paul[at]willutzki[dot]de>
+//
+//   This program is free software; you can redistribute it and/or
+//   modify it under the terms of version 2 of the GNU General
+//   Public License as published by the Free Software Foundation.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program; if not, write to the Free Software
+//   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+component ledlight "sets nonlinear led";
+pin in float in;
+pin out float out;
+pin in float out_min = 0.25;
+pin in float out_max = 1.0;
+pin in float in_min = 20;
+pin in float in_max = 200;
+
+description """
+The component \\fBledlight\\fR sets the LED light PWM output based on input
+""";
+
+function _;
+license "GPL";
+;;
+#include <rtapi_math.h>
+
+FUNCTION(_) {
+    double in0 = in - in_min;
+    if ( in0 < 0 ) in0 = 0;
+    if ( in_max < in_min )
+        out = out_min;
+    else
+        out = (in0 / (in_max-in_min)) * ( out_max - out_min) + out_min;
+}

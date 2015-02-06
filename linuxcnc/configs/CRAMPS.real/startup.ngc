@@ -1,0 +1,17 @@
+G21        ;metric values
+G90        ;absolute positioning
+;G64 P0.1	; path mode
+G29; Auto Bed Leveling
+G29.1; Retract probe
+
+M1  ; Pause
+
+M190 P70 ;bed temperature 
+M104 P215 ;extruder temperature 
+
+M1  ; Pause
+
+M190 P0 ;bed temperature 
+M104 P0 ;extruder temperature 
+
+MM2

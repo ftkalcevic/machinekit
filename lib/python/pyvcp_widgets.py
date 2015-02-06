@@ -1112,19 +1112,22 @@ class pyvcp_bar(Canvas):
         <range2>(101,129,"orange")</range2>
         <range3>(130,150,"red")</range3>
         <fillcolor>"green"</fillcolor>
+        <hidelabels>True</hidelabels>
     </bar>
     """
     n=0
 
-    def __init__(self,master,pycomp,fillcolor="green",bgcolor="grey",
+    def __init__(self,master,pycomp,fillcolor="green",bgcolor="grey",hidelabels=False,
+               barheight=30,canvasheight=50,hideborder=False,
                halpin=None,min_=0.0,max_=100.0,range1=None,range2=None,range3=None,**kw):
     
         self.cw=200    # canvas width
-        self.ch=50     # canvas height
-        self.bh=30     # bar height
+        self.ch=canvasheight     # canvas height
+        self.bh=barheight     # bar height
         self.bw=150    # bar width
         self.pad=((self.cw-self.bw)/2)
-		
+        self.showlabels = not hidelabels
+
         Canvas.__init__(self,master,width=self.cw,height=self.ch)
 
         if halpin == None:
@@ -1142,24 +1145,29 @@ class pyvcp_bar(Canvas):
         pycomp[self.halpin] = self.value
         
         # the border
-        border=self.create_rectangle(self.pad,1,self.pad+self.bw,self.bh)
-        self.itemconfig(border,fill=bgcolor)
+        if not hideborder:
+            border=self.create_rectangle(self.pad,1,self.pad+self.bw,self.bh)
+            self.itemconfig(border,fill=bgcolor)
         
         # the bar
         tmp=self.bar_coords()
         start=tmp[0]
         end=tmp[1]
-        self.bar=self.create_rectangle(start,2,end,self.bh-1)
+        if not hideborder:
+            self.bar=self.create_rectangle(start,2,end,self.bh-1)
+        else:
+            self.bar=self.create_rectangle(start,1,end,self.bh)
 	    # default fill unless overriden
         self.itemconfig(self.bar,fill=fillcolor)
 
-        # start text
-        start_text=self.create_text(self.pad,self.bh+10,text=str(self.startval) )
-        #end text
-        end_text=self.create_text(self.pad+self.bw,self.bh+10,text=str(self.endval) )
-        # value text
-        self.val_text=self.create_text(self.pad+self.bw/2,
-                                   self.bh/2,text=str(self.value) )
+        if self.showlabels:
+            # start text
+            start_text=self.create_text(self.pad,self.bh+10,text=str(self.startval) )
+            #end text
+            end_text=self.create_text(self.pad+self.bw,self.bh+10,text=str(self.endval) )
+            # value text
+            self.val_text=self.create_text(self.pad+self.bw/2,
+                                           self.bh/2,text=str(self.value) )
 
         if range1!=None and range2!=None and range3!=None:
             self.range1 = range1
@@ -1205,8 +1213,9 @@ class pyvcp_bar(Canvas):
         newvalue=pycomp[self.halpin]
         if newvalue != self.value:
             self.value = newvalue
-            valtext = str( "%(b)3.1f" % {'b':self.value} )
-            self.itemconfig(self.val_text,text=valtext)
+            if self.showlabels:
+                valtext = str( "%(b)3.1f" % {'b':self.value} )
+                self.itemconfig(self.val_text,text=valtext)
             # set bar colour
             if self.ranges:
                 self.set_fill(self.range1, self.range2, self.range3)

@@ -1,0 +1,13 @@
+o<retractprobe> sub
+
+    G0 Z30
+    G0 X-46 Y 89.5
+    G38.2 z13 F1000
+    G1 z12 F1000
+    G0 Z30
+    ; For delta printer, being off table requires huge acc and vel to match world acc/vel
+    G1 X50 Y50 Z50 F8000
+    F1000
+
+o<retractprobe> endsub
+

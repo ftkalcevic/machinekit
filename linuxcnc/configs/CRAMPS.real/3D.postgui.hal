@@ -1,0 +1,39 @@
+# Include your customized HAL commands here
+# The commands in this file are run after the AXIS GUI (including PyVCP panel) starts
+
+net e0.temp.set  => pyvcp.E0.Temp.set
+net e0.temp.meas => pyvcp.E0.Temp
+net e0.heaterl => pyvcp.E0.pwm
+
+net bed.temp.set  => pyvcp.Bed.Temp.set
+net bed.temp.meas => pyvcp.Bed.Temp
+net bed.heaterl => pyvcp.Bed.pwm
+
+net probe => pyvcp.LED.Probe
+
+net AtTemp => pyvcp.LED.AtTemp
+
+loadrt time
+#loadrt not count=3
+loadrt and2 count=4
+
+addf time.0 servo-thread
+#addf not.0 servo-thread
+addf not.1 servo-thread
+addf not.2 servo-thread
+addf and2.0 servo-thread
+addf and2.1 servo-thread
+addf and2.2 servo-thread
+addf and2.3 servo-thread
+
+net run-timer halui.program.is-running => and2.2.in0
+net reset-timer pyvcp.elapsed.reset => not.1.in
+net not-reset-timer not.1.out => and2.2.in1
+net temp.hold => not.2.in
+net not-feed-hold not.2.out => and2.3.in0
+net time-start-and and2.2.out => and2.3.in1
+net time-start and2.3.out => time.0.start
+net timer-seconds pyvcp.elapsed.secs <= time.0.seconds
+net timer-minutes pyvcp.elapsed.mins <= time.0.minutes
+net timer-hours pyvcp.elapsed.hours <= time.0.hours
+
