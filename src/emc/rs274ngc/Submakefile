@@ -78,3 +78,43 @@ $(PREVIEWMODULE): $(call TOOBJS, $(PREVIEWMODULESRCS)) \
 
 
 PYTARGETS += $(PREVIEWMODULE)
+
+
+
+
+LIBINTERPBASECLASSSRCS := $(addprefix emc/rs274ngc/, \
+	interpbaseclass.cc \
+	interp_arc.cc \
+	interp_array.cc \
+	interp_base.cc \
+	interp_check.cc \
+	interp_convert.cc \
+	interp_queue.cc \
+	interp_cycles.cc \
+	interp_execute.cc \
+	interp_find.cc \
+	interp_internal.cc \
+	interp_inverse.cc \
+	interp_read.cc \
+	interp_setup.cc \
+	interp_write.cc \
+	interp_o_word.cc \
+	nurbs_additional_functions.cc \
+	interp_namedparams.cc \
+	interp_python.cc \
+	interp_remap.cc \
+	rs274ngc_pre.cc)
+USERSRCS += emc/rs274ngc/interpbaseclass.cc
+
+$(call TOOBJSDEPS, $(LIBINTERPBASECLASSSRCS)) : EXTRAFLAGS=-fPIC $(BOOST_DEBUG_FLAGS) 
+
+TARGETS += ../lib/libinterpbaseclass.so.0 ../lib/libinterpbaseclass.so
+
+../lib/libinterpbaseclass.so.0: $(patsubst %.cc,objects/%.o,$(LIBINTERPBASECLASSSRCS)) \
+	../lib/liblinuxcncini.so ../lib/libpyplugin.so ../lib/liblinuxcnchal.so.0
+	$(ECHO) Linking $(notdir $@)
+	@mkdir -p ../lib
+	@rm -f $@
+	$(CXX) -g $(LDFLAGS) -Wl,-soname,$(notdir $@) -shared -o $@ $^ -lstdc++ $(BOOST_PYTHON_LIBS) -l$(LIBPYTHON)
+
+

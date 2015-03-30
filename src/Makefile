@@ -471,6 +471,7 @@ HEADERS := \
     emc/nml_intf/debugflags.h \
     emc/rs274ngc/interp_internal.hh \
     emc/rs274ngc/interp_base.hh \
+    emc/rs274ngc/interpbaseclass.hh \
     emc/rs274ngc/rs274ngc.hh \
     hal/lib/hal.h \
     hal/lib/hal_priv.h \
