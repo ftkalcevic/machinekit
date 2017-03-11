@@ -3,7 +3,6 @@ import os
 import sys
 from stat import *
 import zmq
-import netifaces
 import threading
 import signal
 import time
@@ -11,17 +10,24 @@ import argparse
 
 import ConfigParser
 from machinekit import service
+from machinekit import config
 
-from message_pb2 import Container
-from config_pb2 import *
-from types_pb2 import *
+from google.protobuf.message import DecodeError
+from machinetalk.protobuf.message_pb2 import Container
+from machinetalk.protobuf.config_pb2 import *
+from machinetalk.protobuf.types_pb2 import *
 
 
 class ConfigServer:
-    def __init__(self, context, appDirs=[], topdir=".",
-                 ip="", svcUuid=None, debug=False, name=None, ipInName=True):
+    def __init__(self, context, appDirs=None, topdir=".",
+                 host='', svcUuid=None, debug=False, name=None, 
+                 hostInName=True, loopback=False):
+        if appDirs is None:
+            appDirs = []
+
         self.appDirs = appDirs
-        self.ip = ip
+        self.host = host
+        self.loopback = loopback
         self.name = name
         self.debug = debug
         self.shutdown = threading.Event()
@@ -29,7 +35,7 @@ class ConfigServer:
         self.cfg = ConfigParser.ConfigParser()
 
         for rootdir in self.appDirs:
-            for root, subFolders, files in os.walk(rootdir):
+            for root, _, files in os.walk(rootdir):
                 if 'description.ini' in files:
                     inifile = os.path.join(root, 'description.ini')
                     cfg = ConfigParser.ConfigParser()
@@ -51,21 +57,27 @@ class ConfigServer:
         self.tx = Container()
         self.topdir = topdir
         self.context = context
-        self.baseUri = "tcp://" + self.ip
+        self.baseUri = "tcp://"
+        if self.loopback:
+            self.baseUri += '127.0.0.1'
+        else:
+            self.baseUri += '*'
         self.socket = context.socket(zmq.ROUTER)
         self.port = self.socket.bind_to_random_port(self.baseUri)
         self.dsname = self.socket.get_string(zmq.LAST_ENDPOINT, encoding='utf-8')
+        self.dsname = self.dsname.replace('0.0.0.0', self.host)
 
         if self.name is None:
             self.name = "Machinekit"
-        if ipInName:
-            self.name = self.name + " on " + self.ip
+        if hostInName:
+            self.name += ' on ' + self.host
         self.service = service.Service(type='config',
                                    svcUuid=svcUuid,
                                    dsn=self.dsname,
                                    port=self.port,
-                                   ip=self.ip,
+                                   host=self.host,
                                    name=self.name,
+                                   loopback=self.loopback,
                                    debug=self.debug)
 
         self.publish()
@@ -112,7 +124,7 @@ class ConfigServer:
         if self.debug:
             print(("send_msg " + str(self.tx)))
         self.tx.Clear()
-        self.socket.send_multipart([dest, txBuffer])
+        self.socket.send_multipart(dest + [txBuffer], zmq.NOBLOCK)
 
     def list_apps(self, origin):
         for name in self.cfg.sections():
@@ -154,62 +166,45 @@ class ConfigServer:
         self.send_msg(origin, MT_APPLICATION_DETAIL)
 
     def process(self, s):
+        frames = s.recv_multipart()
+        identity = frames[:-1]  # multipart id
+        message = frames[-1]  # last frame
+
         if self.debug:
-            print("process called")
+            print("process called, id: %s" % identity)
+
         try:
-            (origin, msg) = s.recv_multipart()
-        except Exception as e:
-            print(("Exception " + str(e)))
+            self.rx.ParseFromString(message)
+        except DecodeError as e:
+            note = 'Protobuf Decode Error: ' + str(e)
+            self.tx.note.append(note)
+            self.send_msg(identity, MT_ERROR)
             return
-        self.rx.ParseFromString(msg)
 
         if self.rx.type == MT_LIST_APPLICATIONS:
-            self.list_apps(origin)
+            self.list_apps(identity)
             return
 
         if self.rx.type == MT_RETRIEVE_APPLICATION:
             a = self.rx.app[0]
-            self.retrieve_app(origin, a.name)
-        return
+            self.retrieve_app(identity, a.name)
+            return
 
-        note = self.tx.note.add()
+        if self.rx.type == MT_PING:
+            self.send_msg(identity, MT_PING_ACKNOWLEDGE)
+            return
+
         note = "unsupported request type %d" % (self.rx.type)
-        self.send_msg(origin, MT_ERROR)
-
-
-def choose_ip(pref):
-    '''
-    given an interface preference list, return a tuple (interface, ip)
-    or None if no match found
-    If an interface has several ip addresses, the first one is picked.
-    pref is a list of interface names or prefixes:
-
-    pref = ['eth0','usb3']
-    or
-    pref = ['wlan','eth', 'usb']
-    '''
-
-    # retrieve list of network interfaces
-    interfaces = netifaces.interfaces()
-
-    # find a match in preference oder
-    for p in pref:
-        for i in interfaces:
-            if i.startswith(p):
-                ifcfg = netifaces.ifaddresses(i)
-                # we want the first ip address
-                try:
-                    ip = ifcfg[netifaces.AF_INET][0]['addr']
-                except KeyError:
-                    continue
-                return (i, ip)
-    return None
+        self.tx.note.append(note)
+        self.send_msg(identity, MT_ERROR)
 
 
 shutdown = False
 
 
 def _exitHandler(signum, frame):
+    del signum  # ignored
+    del frame  # ignored
     global shutdown
     shutdown = True
 
@@ -236,29 +231,25 @@ def main():
 
     debug = args.debug
 
+    mkconfig = config.Config()
     mkini = os.getenv("MACHINEKIT_INI")
     if mkini is None:
-        sys.stderr.write("no MACHINEKIT_INI environemnt variable set")
+        mkini = mkconfig.MACHINEKIT_INI
+    if not os.path.isfile(mkini):
+        sys.stderr.write("MACHINEKIT_INI " + mkini + " does not exist\n")
         sys.exit(1)
 
     mki = ConfigParser.ConfigParser()
     mki.read(mkini)
     uuid = mki.get("MACHINEKIT", "MKUUID")
     remote = mki.getint("MACHINEKIT", "REMOTE")
-    prefs = mki.get("MACHINEKIT", "INTERFACES").split()
 
     if remote == 0:
         print("Remote communication is deactivated, configserver will use the loopback interfaces")
         print(("set REMOTE in " + mkini + " to 1 to enable remote communication"))
-        iface = ['lo', '127.0.0.1']
-    else:
-        iface = choose_ip(prefs)
-        if not iface:
-            sys.stderr.write("failed to determine preferred interface (preference = %s)" % prefs)
-            sys.exit(1)
 
     if debug:
-        print(("announcing configserver on " + str(iface)))
+        print(("announcing configserver"))
 
     context = zmq.Context()
     context.linger = 0
@@ -268,14 +259,16 @@ def main():
     configService = None
 
     try:
+        hostname = '%(fqdn)s'  # replaced by service announcement
         configService = ConfigServer(context,
-                       svcUuid=uuid,
-                       topdir=".",
-                       ip=iface[1],
-                       appDirs=args.dirs,
-                       name=args.name,
-                       ipInName=bool(args.suppress_ip),
-                       debug=debug)
+                                     svcUuid=uuid,
+                                     topdir=".",
+                                     host=hostname,
+                                     appDirs=args.dirs,
+                                     name=args.name,
+                                     hostInName=bool(args.suppress_ip),
+                                     loopback=(not remote),
+                                     debug=debug)
 
         while configService.running and not check_exit():
             time.sleep(1)

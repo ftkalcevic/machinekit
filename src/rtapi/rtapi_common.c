@@ -18,6 +18,7 @@
 #include "rtapi.h"
 #include "rtapi_common.h"
 #include "rtapi_compat.h"
+#include "ring.h"
 
 #ifndef MODULE
 #include <stdlib.h>		/* strtol() */
@@ -142,6 +143,17 @@ static rtapi_switch_t rtapi_switch_struct = {
 #else
     .rtapi_task_update_stats = &_rtapi_dummy,
 #endif
+    .rtapi_malloc = &_rtapi_malloc,
+    .rtapi_malloc_aligned = &_rtapi_malloc_aligned,
+    .rtapi_calloc = &_rtapi_calloc,
+    .rtapi_realloc = &_rtapi_realloc,
+    .rtapi_free = &_rtapi_free,
+    .rtapi_allocsize = &_rtapi_allocsize,
+    .rtapi_heap_init = &_rtapi_heap_init,
+    .rtapi_heap_addmem = &_rtapi_heap_addmem,
+    .rtapi_heap_status = &_rtapi_heap_status,
+    .rtapi_heap_setflags = &_rtapi_heap_setflags,
+    .rtapi_heap_walk_freelist = &_rtapi_heap_walk_freelist,
 };
 
 // any API, any style:
@@ -256,7 +268,7 @@ void init_rtapi_data(rtapi_data_t * data)
 int _rtapi_task_update_stats(void)
 {
 #ifdef HAVE_RTAPI_TASK_UPDATE_STATS_HOOK
-    extern int _rtapi_task_update_stats_hook();
+    extern int _rtapi_task_update_stats_hook(void);
 
     return _rtapi_task_update_stats_hook();
 #else

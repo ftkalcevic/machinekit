@@ -78,7 +78,6 @@ else:
 if hal_present == 1 :
     import hal
 
-
 import ConfigParser
 cp = ConfigParser.ConfigParser
 class AxisPreferences(cp):
@@ -145,7 +144,41 @@ if (inifile.find("DISPLAY", "DISABLE_PREVIEW") or "0") == "1":
 else:
     disablePreview = False
 
+command0 = inifile.find('USER_COMMANDS', 'USER0')
+if command0 == "":
+    user_commands = False
+else:
+    user_commands = True
+    command1 = inifile.find('USER_COMMANDS', 'USER1')
+    command2 = inifile.find('USER_COMMANDS', 'USER2')
+    command3 = inifile.find('USER_COMMANDS', 'USER3')
+    command4 = inifile.find('USER_COMMANDS', 'USER4')
+    command5 = inifile.find('USER_COMMANDS', 'USER5')
+    command6 = inifile.find('USER_COMMANDS', 'USER6')
+    command7 = inifile.find('USER_COMMANDS', 'USER7')
+    command8 = inifile.find('USER_COMMANDS', 'USER8')
+    command9 = inifile.find('USER_COMMANDS', 'USER9')
+
+keys = inifile.find('USER_COMMANDS', 'NUMBERKEYS')
+if keys == "YES" :
+    num_keys = True
+else:
+    num_keys = False
+
+preview = inifile.find('USER_COMMANDS', 'DISABLE_PREVIEW')
+if preview == "YES" :
+    allow_preview = False
+else:
+    allow_preview = True
+
+loadlast = inifile.find('USER_COMMANDS', 'LOAD_LASTFILE')
+if loadlast == "YES" :
+    load_lastfile = True
+else:
+    load_lastfile = False
+
 feedrate_blackout = 0
+rapidrate_blackout = 0
 spindlerate_blackout = 0
 maxvel_blackout = 0
 jogincr_index_last = 1
@@ -819,8 +852,8 @@ class LivePlotter:
         )
         o.after_idle(lambda: thread.start_new_thread(self.logger.start, (.01,)))
 
-        global feedrate_blackout, spindlerate_blackout, maxvel_blackout
-        feedrate_blackout=spindlerate_blackout=maxvel_blackout=time.time()+1
+        global feedrate_blackout, rapidrate_blackout, spindlerate_blackout, maxvel_blackout
+        feedrate_blackout=rapidrate_blackout=spindlerate_blackout=maxvel_blackout=time.time()+1
 
         self.running.set(True)
 
@@ -939,6 +972,8 @@ class LivePlotter:
             vupdate(vars.spindlerate, int(100 * self.stat.spindlerate + .5))
         if time.time() > feedrate_blackout:
             vupdate(vars.feedrate, int(100 * self.stat.feedrate + .5))
+        if time.time() > rapidrate_blackout:
+            vupdate(vars.rapidrate, int(100 * self.stat.rapidrate + .5))
         if time.time() > maxvel_blackout:
             m = to_internal_linear_unit(self.stat.max_velocity)
             if vars.metric.get(): m = m * 25.4
@@ -1183,13 +1218,24 @@ def cancel_open(event=None):
     if o.canon is not None:
         o.canon.aborted = True
 
+def write_file_name(event=None):
+    f = open('/tmp/emc.filename','w')
+    if loaded_file:
+        print >>f, loaded_file            
+    else:
+        print >>f, "No File Loaded"        
+    f.close()
+    return
+
 loaded_file = None
 def open_file_guts(f, filtered=False, addrecent=True):
+   
     if addrecent:
         add_recent_file(f)
     if not filtered:
         global loaded_file
         loaded_file = f
+        write_file_name()
         program_filter = get_filter(f)
         if program_filter:
             tempfile = os.path.join(tempdir, os.path.basename(f))
@@ -1253,23 +1299,26 @@ def open_file_guts(f, filtered=False, addrecent=True):
 		unitcode = "G%d" % (20 + (s.linear_units == 1))
         else:
 		unitcode = ''
-        try:
-            result, seq = o.load_preview(f, canon, unitcode, initcode, interpname)
-        except KeyboardInterrupt:
-            result, seq = 0, 0
-        # According to the documentation, MIN_ERROR is the largest value that is
-        # not an error.  Crazy though that sounds...
-        if result > gcode.MIN_ERROR:
-            error_str = _(gcode.strerror(result))
-            root_window.tk.call("nf_dialog", ".error",
-                    _("G-Code error in %s") % os.path.basename(f),
-                    _("Near line %(seq)d of %(f)s:\n%(error_str)s") % {'seq': seq, 'f': f, 'error_str': error_str},
-                    "error",0,_("OK"))
+        # preview can be disabled in ini file when using very large files
+        if allow_preview :
+            try:
+                result, seq = o.load_preview(f, canon, unitcode, initcode, interpname)
+                
+            except KeyboardInterrupt:
+                result, seq = 0, 0
+            # According to the documentation, MIN_ERROR is the largest value that is
+            # not an error.  Crazy though that sounds...
+            if result > gcode.MIN_ERROR:
+                error_str = _(gcode.strerror(result))
+                root_window.tk.call("nf_dialog", ".error",
+                        _("G-Code error in %s") % os.path.basename(f),
+                        _("Near line %(seq)d of %(f)s:\n%(error_str)s") % {'seq': seq, 'f': f, 'error_str': error_str},
+                        "error",0,_("OK"))
 
         t.configure(state="disabled")
         o.lp.set_depth(from_internal_linear_unit(o.get_foam_z()),
                        from_internal_linear_unit(o.get_foam_w()))
-
+                  
     except Exception, e:
         notifications.add("error", str(e))
     finally:
@@ -1365,6 +1414,7 @@ widgets = nf.Widgets(root_window,
     ("clear_plot", Button, ".toolbar.clear_plot"),
 
     ("feedoverride", Scale, pane_top + ".feedoverride.foscale"),
+    ("rapidoverride", Scale, pane_top + ".rapidoverride.foscale"),
     ("spinoverride", Scale, pane_top + ".spinoverride.foscale"),
     ("spinoverridef", Scale, pane_top + ".spinoverride"),
 
@@ -1374,10 +1424,22 @@ widgets = nf.Widgets(root_window,
     ("menu_machine", Menu, ".menu.machine"),
     ("menu_touchoff", Menu, ".menu.machine.touchoff"),
 
+    ("menu_user", Menu, ".menu.user"),
+    ("menu_user1", Menu, ".menu.user.user1"),
+    ("menu_user2", Menu, ".menu.user.user2"),    
+    ("menu_user3", Menu, ".menu.user.user3"),    
+    ("menu_user4", Menu, ".menu.user.user4"),
+    ("menu_user5", Menu, ".menu.user.user5"),    
+    ("menu_user6", Menu, ".menu.user.user6"),    
+    ("menu_user7", Menu, ".menu.user.user7"),
+    ("menu_user8", Menu, ".menu.user.user8"),    
+    ("menu_user9", Menu, ".menu.user.user9"),    
+            
     ("homebutton", Button, tabs_manual + ".jogf.zerohome.home"),
     ("homemenu", Menu, ".menu.machine.home"),
     ("unhomemenu", Menu, ".menu.machine.unhome")
 )
+
 
 def activate_axis(i, force=0):
     if not force and not manual_ok(): return
@@ -1800,7 +1862,83 @@ def reload_file(refilter=True):
     if line:
         o.set_highlight_line(line)
  
+def _axis_activated(axis):
+    if not hal_present: return # this only makes sense if HAL is present on this machine
+    vars.current_axis.set(axis)
+    comp['jog.x'] = vars.current_axis.get() == "x"
+    comp['jog.y'] = vars.current_axis.get() == "y"
+    comp['jog.z'] = vars.current_axis.get() == "z"
+    comp['jog.a'] = vars.current_axis.get() == "a"
+    comp['jog.b'] = vars.current_axis.get() == "b"
+    comp['jog.c'] = vars.current_axis.get() == "c"
+    comp['jog.u'] = vars.current_axis.get() == "u"
+    comp['jog.v'] = vars.current_axis.get() == "v"
+    comp['jog.w'] = vars.current_axis.get() == "w"
+
 class TclCommands(nf.TclCommands):
+#---------------------------------------------------------------------------------------------------
+    if  user_commands :  # disable if user commands not activated in ini file
+        def user0(self = 0):
+            commands.usercmd(command0)
+            return
+        
+        def user1(self = 0):
+            commands.usercmd(command1)
+            return
+
+        def user2(self = 0):
+            commands.usercmd(command2)
+            return
+
+        def user3(self = 0):
+            commands.usercmd(command3)    
+            return
+
+        def user4(self = 0):
+            commands.usercmd(command4)
+            return
+
+        def user5(self = 0):
+            commands.usercmd(command5)    
+            return
+
+        def user6(self = 0):
+            commands.usercmd(command6)
+            return
+        
+        def user7(self = 0):
+            commands.usercmd(command7)
+            return
+
+        def user8(self = 0):
+            commands.usercmd(command8)
+            return
+
+        def user9(self = 0):
+            commands.usercmd(command9)
+            return        
+
+        #   system commands will be prefixed with '$' 
+        #   halcmd commands prefixed with '#'
+        #   otherwise commands are gcode
+
+        def usercmd(command):
+            if command != None :
+                if command[0] == '$':
+                    x = command[1:]
+                    x = x + ' &'
+                    os.system(x)
+                elif command[0] == '#':
+                    x = command[1:]
+                    x = "halcmd " + x
+                    os.system(x)                
+                else :
+                    commands.send_mdi_command(command)
+                    c.wait_complete()
+                    ensure_mode(linuxcnc.MODE_MANUAL)       
+            return
+#---------------------------------------------------------
+
     def next_tab(event=None):
         current = widgets.right.raise_page()
         pages = widgets.right.pages()
@@ -1897,7 +2035,7 @@ class TclCommands(nf.TclCommands):
 
     def launch_website(event=None):
         import webbrowser
-        webbrowser.open("http://www.linuxcnc.org/")
+        webbrowser.open("http://www.machinekit.io/")
 
     def set_spindlerate(newval):
         global spindlerate_blackout
@@ -1916,6 +2054,15 @@ class TclCommands(nf.TclCommands):
         value = value / 100.
         c.feedrate(value)
         feedrate_blackout = time.time() + 1
+
+    def set_rapidrate(newval):
+        global rapidrate_blackout
+        try:
+            value = int(newval)
+        except ValueError: return
+        value = value / 100.
+        c.rapidrate(value)
+        rapidrate_blackout = time.time() + 1
 
     def set_maxvel(newval):
         newval = float(newval)
@@ -2036,6 +2183,14 @@ class TclCommands(nf.TclCommands):
             return _("axis cannot accept remote command while running")
         if cmd == "open_file_name":
             commands.open_file_name(arg)
+        elif cmd == "run_command":
+            global program_start_line, program_start_line_last
+            program_start_line_last = program_start_line;
+            ensure_mode(linuxcnc.MODE_AUTO)
+            c.auto(linuxcnc.AUTO_RUN, program_start_line)
+            program_start_line = 0
+            t.tag_remove("ignored", "0.0", "end")
+            o.set_highlight_line(None)
         elif cmd == "send_mdi_command":
             commands.send_mdi_command(arg)
         elif cmd == "reload_file":
@@ -2120,6 +2275,7 @@ class TclCommands(nf.TclCommands):
             root_window.tk.call("exec", *e)
 
     def task_run(*event):
+        if comp['run-disable']  : return
         if run_warn(): return
 
         global program_start_line, program_start_line_last
@@ -2605,17 +2761,32 @@ class TclCommands(nf.TclCommands):
         else:
             commands.set_view_z()
 
-    def axis_activated(*args):
-        if not hal_present: return # this only makes sense if HAL is present on this machine
-        comp['jog.x'] = vars.current_axis.get() == "x"
-        comp['jog.y'] = vars.current_axis.get() == "y"
-        comp['jog.z'] = vars.current_axis.get() == "z"
-        comp['jog.a'] = vars.current_axis.get() == "a"
-        comp['jog.b'] = vars.current_axis.get() == "b"
-        comp['jog.c'] = vars.current_axis.get() == "c"
-        comp['jog.u'] = vars.current_axis.get() == "u"
-        comp['jog.v'] = vars.current_axis.get() == "v"
-        comp['jog.w'] = vars.current_axis.get() == "w"
+    def axis_activated_x(*args):
+        _axis_activated("x")
+
+    def axis_activated_y(*args):
+        _axis_activated("y")
+
+    def axis_activated_z(*args):
+        _axis_activated("z")
+
+    def axis_activated_a(*args):
+        _axis_activated("a")
+
+    def axis_activated_b(*args):
+        _axis_activated("b")
+
+    def axis_activated_c(*args):
+        _axis_activated("c")
+
+    def axis_activated_u(*args):
+        _axis_activated("u")
+
+    def axis_activated_v(*args):
+        _axis_activated("v")
+
+    def axis_activated_w(*args):
+        _axis_activated("w")
 
     def set_joint_mode(*args):
         joint_mode = vars.joint_mode.get()
@@ -2698,6 +2869,7 @@ vars = nf.Variables(root_window,
     ("dro_large_font", IntVar),
     ("show_rapids", IntVar),
     ("feedrate", IntVar),
+    ("rapidrate", IntVar),
     ("spindlerate", IntVar),
     ("tool", StringVar),
     ("active_codes", StringVar),
@@ -2754,6 +2926,9 @@ update_recent_menu()
 def set_feedrate(n):
     widgets.feedoverride.set(n)
 
+def set_rapidrate(n):
+    widgets.rapidoverride.set(n)
+
 def activate_axis_or_set_feedrate(n):
     # XXX: axis_mask does not apply if in joint mode
     if manual_ok() and s.axis_mask & (1<<n):
@@ -2796,17 +2971,31 @@ root_window.bind("x", lambda event: activate_axis(0))
 root_window.bind("y", lambda event: activate_axis(1))
 root_window.bind("z", lambda event: activate_axis(2))
 root_window.bind("a", lambda event: activate_axis(3))
-root_window.bind("`", lambda event: activate_axis_or_set_feedrate(0))
-root_window.bind("1", lambda event: activate_axis_or_set_feedrate(1))
-root_window.bind("2", lambda event: activate_axis_or_set_feedrate(2))
-root_window.bind("3", lambda event: activate_axis_or_set_feedrate(3))
-root_window.bind("4", lambda event: activate_axis_or_set_feedrate(4))
-root_window.bind("5", lambda event: activate_axis_or_set_feedrate(5))
-root_window.bind("6", lambda event: activate_axis_or_set_feedrate(6))
-root_window.bind("7", lambda event: activate_axis_or_set_feedrate(7))
-root_window.bind("8", lambda event: activate_axis_or_set_feedrate(8))
-root_window.bind("9", lambda event: set_feedrate(90))
-root_window.bind("0", lambda event: set_feedrate(100))
+
+if num_keys and user_commands:
+    root_window.bind("0", commands.user0)
+    root_window.bind("1", commands.user1)
+    root_window.bind("2", commands.user2)
+    root_window.bind("3", commands.user3)
+    root_window.bind("4", commands.user4)
+    root_window.bind("5", commands.user5)
+    root_window.bind("6", commands.user6)
+    root_window.bind("7", commands.user7)
+    root_window.bind("8", commands.user8)
+    root_window.bind("9", commands.user9)
+else:
+    root_window.bind("`", lambda event: activate_axis_or_set_feedrate(0))
+    root_window.bind("1", lambda event: activate_axis_or_set_feedrate(1))
+    root_window.bind("2", lambda event: activate_axis_or_set_feedrate(2))
+    root_window.bind("3", lambda event: activate_axis_or_set_feedrate(3))
+    root_window.bind("4", lambda event: activate_axis_or_set_feedrate(4))
+    root_window.bind("5", lambda event: activate_axis_or_set_feedrate(5))
+    root_window.bind("6", lambda event: activate_axis_or_set_feedrate(6))
+    root_window.bind("7", lambda event: activate_axis_or_set_feedrate(7))
+    root_window.bind("8", lambda event: activate_axis_or_set_feedrate(8))
+    root_window.bind("9", lambda event: set_feedrate(90))
+    root_window.bind("0", lambda event: set_feedrate(100))
+
 root_window.bind("c", lambda event: jogspeed_continuous())
 root_window.bind("d", lambda event: widgets.rotate.invoke())
 root_window.bind("i", lambda event: jogspeed_incremental())
@@ -2997,6 +3186,7 @@ root_window.tk.eval("${pane_top}.jogspeed.s set [setval $jog_speed $max_speed]")
 root_window.tk.eval("${pane_top}.ajogspeed.s set [setval $jog_aspeed $max_aspeed]")
 root_window.tk.eval("${pane_top}.maxvel.s set [setval $maxvel_speed $max_maxvel]")
 widgets.feedoverride.configure(to=max_feed_override)
+widgets.rapidoverride.configure(to=100)
 widgets.spinoverride.configure(to=max_spindle_override)
 nmlfile = inifile.find("EMC", "NML_FILE")
 if nmlfile:
@@ -3055,7 +3245,7 @@ while s.axes == 0:
     statwait *= 2
     if statfail > 8:
         raise SystemExit, (
-            "A configuration error is preventing LinuxCNC from starting.\n"
+            "A configuration error is preventing Machinekit from starting.\n"
             "More information may be available when running from a terminal.")
     s.poll()
 
@@ -3279,6 +3469,7 @@ if hal_present == 1 :
     comp.newpin("notifications-clear",hal.HAL_BIT,hal.HAL_IN)
     comp.newpin("notifications-clear-info",hal.HAL_BIT,hal.HAL_IN)
     comp.newpin("notifications-clear-error",hal.HAL_BIT,hal.HAL_IN)
+    comp.newpin("run-disable",hal.HAL_BIT, hal.HAL_IN)
     vars.has_ladder.set(hal.component_exists('classicladder_rt'))
 
     if vcp:
@@ -3332,6 +3523,11 @@ atexit.register(remove_tempdir, tempdir)
 activate_axis(0, True)
 set_hal_jogincrement()
 
+lastfile = ""
+recent = ap.getpref('recentfiles', [], repr)
+if len(recent):
+    lastfile = recent.pop(0)
+    
 code = []
 addrecent = True
 if args:
@@ -3340,6 +3536,10 @@ elif os.environ.has_key("AXIS_OPEN_FILE"):
     initialfile = os.environ["AXIS_OPEN_FILE"]
 elif inifile.find("DISPLAY", "OPEN_FILE"):
     initialfile = inifile.find("DISPLAY", "OPEN_FILE")
+elif os.path.exists(lastfile) and load_lastfile:
+    initialfile = lastfile
+    print "Loading " 
+    print initialfile
 elif lathe:
     initialfile = os.path.join(BASE, "share", "axis", "images","axis-lathe.ngc")
     addrecent = False
@@ -3349,7 +3549,9 @@ else:
 
 if os.path.exists(initialfile):
     open_file_guts(initialfile, False, addrecent)
-
+else:
+    write_file_name()  # ensure file gets written with 'No File Loaded'
+    
 if lathe:
     commands.set_view_y()
 else:
@@ -3477,6 +3679,8 @@ if lathe:
 
 widgets.feedoverride.set(100)
 commands.set_feedrate(100)
+widgets.rapidoverride.set(100)
+commands.set_rapidrate(100)
 widgets.spinoverride.set(100)
 commands.set_spindlerate(100)
 

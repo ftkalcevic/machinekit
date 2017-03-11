@@ -13,7 +13,7 @@ KTHREAD_ARCHES="i386 amd64"
 # TCL/TK version detection, which can be passed in through the '-t
 # VERSION' switch
 if test -x /usr/bin/lsb_release; then
-    DISTRO_ID=$(lsb_release -is)  # Debian or Ubuntu 
+    DISTRO_ID=$(lsb_release -is)  # Debian or Ubuntu
     DISTRO_RELEASE=$(lsb_release -rs)   # 8.1, 14.04, etc.
 fi
 
@@ -89,7 +89,7 @@ rules_set_kthreads_headers() {
 		-e "s@^#\(${HEADERS_VAR}\) .*@\1 = ${HEADERS}@"
 	fi
     done
-}    
+}
 
 do_posix() {
     cat control.posix.in >> control
@@ -103,7 +103,7 @@ do_rt-preempt() {
     echo "debian/control:  added RT_PREEMPT threads package" >&2
     rules_enable_threads rt-preempt
     HAVE_FLAVOR=true
-}    
+}
 
 do_xenomai() {
     # Be sure the -dev files only appear once
@@ -114,7 +114,7 @@ do_xenomai() {
     echo "    libxenomai-dev" >&2
     rules_enable_threads xenomai
     HAVE_FLAVOR=true
-}    
+}
 
 do_xenomai_kernel() {
     KVER=$1
@@ -135,9 +135,10 @@ do_xenomai_kernel() {
     echo "debian/control:  Added Xenomai kernel threads ${KVER}" >&2
     echo "                 with Build-Depends:" >&2
     echo "    libxenomai-dev" >&2
-    rules_enable_threads xenomai_kernel
+    rules_enable_threads xenomai-kernel
     XENOMAI_KERNEL_HEADERS+=" ${KVER}"
     HAVE_FLAVOR=true
+    HAVE_KTHREADS_FLAVOR=true
 }
 
 do_rtai_kernel() {
@@ -159,21 +160,10 @@ do_rtai_kernel() {
     echo "debian/control:  Added RTAI kernel threads ${KVER}" >&2
     echo "                 with Build-Depends:" >&2
     echo "    librtai-dev" >&2
-    rules_enable_threads rtai_kernel
+    rules_enable_threads rtai-kernel
     RTAI_KERNEL_HEADERS+=" ${KVER}"
     HAVE_FLAVOR=true
-}
-
-do_docs() {
-    DOCS_BUILD_DEPS="asciidoc (>= 8.5), dblatex (>= 0.2.12), "
-    DOCS_BUILD_DEPS+="ghostscript, imagemagick, source-highlight, "
-    DOCS_BUILD_DEPS+="dvipng, python-lxml, "
-    BUILD_DEPS+="$DOCS_BUILD_DEPS"
-    cat control.docs.in >> control
-    echo "debian/control:  added docs package with Build-Depends:" >&2
-    echo "    ${DOCS_BUILD_DEPS}" >&2
-    sed -i rules -e "s/^#\(BUILDDOCS.*\)/\1/"
-    echo "debian/rules:  enabled doc builds" >&2
+    HAVE_KTHREADS_FLAVOR=true
 }
 
 do_tcl_tk_version() {
@@ -184,7 +174,9 @@ do_tcl_tk_version() {
 	TCL_TK_VER=8.6
 	case "$DISTRO_ID" in
 	    Debian)  test "${DISTRO_RELEASE/.*/}" -lt 8 && TCL_TK_VER=8.5 ;;
+	    Raspbian)test "${DISTRO_RELEASE/.*/}" -lt 8 && TCL_TK_VER=8.5 ;;
 	    Ubuntu)  test "${DISTRO_RELEASE/.*/}" -lt 14 && TCL_TK_VER=8.5 ;;
+	    neon)  test "${DISTRO_RELEASE/.*/}" -lt 14 && TCL_TK_VER=8.5 ;;
 	    *)  usage "Unknown distro '${DISTRO_ID}'" ;;
 	esac
     fi
@@ -204,7 +196,6 @@ usage() {
 	echo "   -X <kver>	build Xenomai-kernel threads ***"
 	echo "   -R <kver>	build RTAI-kernel threads ***"
 	echo "   -t <tclver>	set tcl/tk version"
-	echo "   -d		enable documentation build"
 	echo "      *** Argument may be repeated for multiple kernels"
     } >&2
     exit 1
@@ -221,8 +212,10 @@ test "$1" != --help || usage
 #   (when lists are fully populated)
 
 # set defaults
-BUILD_DEPS=  # List of Build-Depends 
+BUILD_DEPS=  # List of Build-Depends
+DEPS= # List of Depends
 HAVE_FLAVOR=false
+HAVE_KTHREADS_FLAVOR=false
 
 # delete old files
 rm -f machinekit-{rtai,xenomai}-kernel-*.install
@@ -232,11 +225,12 @@ cp control.in control
 echo "debian/control:  copied base template" >&2
 cp rules.in rules; chmod +x rules
 echo "debian/rules:  copied base template" >&2
+cp machinekit.install.in machinekit.install
+echo "debian/machinekit.install.in:  copied base template" >&2
 
 # read command line options
 while getopts dprxR:X:t:?h ARG; do
     case $ARG in
-	d) do_docs ;;
 	p) do_posix ;;
 	r) do_rt-preempt ;;
 	x) do_xenomai ;;
@@ -255,9 +249,18 @@ do_tcl_tk_version "$TCL_TK_VER"
 rules_set_kthreads_headers xenomai-kernel $XENOMAI_KERNEL_HEADERS
 rules_set_kthreads_headers rtai-kernel $RTAI_KERNEL_HEADERS
 
+# Kthreads need `kmod` for both build and runtime deps
+if $HAVE_KTHREADS_FLAVOR; then
+    BUILD_DEPS+='kmod, '
+    DEPS+='kmod, '
+    echo "usr/libexec/linuxcnc/linuxcnc_module_helper" >> \
+	machinekit.install
+fi
+
 # Set control Build-Depends:
 sed -i control \
     -e "s/@BUILD_DEPS@/${BUILD_DEPS}/" \
+    -e "s/@DEPS@/${DEPS}/" \
     -e "s/@TCL_TK_BUILD_DEPS@/${TCL_TK_BUILD_DEPS}/" \
     -e "s/@TCL_TK_DEPS@/${TCL_TK_DEPS}/"
 echo "debian/control:  add final Build-Depends: list" >&2

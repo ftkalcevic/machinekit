@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 #
-#    This is stepconf, a graphical configuration editor for LinuxCNC
+#    This is stepconf, a graphical configuration editor for Machinekit
 #    Copyright 2007 Jeff Epler <jepler@unpythonic.net>
 #
 #    stepconf 1.1 revamped by Chris Morley 2014
-#    replaced Gnome Druid as that is not available in future linux distrubutions
+#    replaced Gnome Druid as that is not available in future linux distributions
 #    and because of GTK/GLADE bugs, the GLADE file could only be edited with Ubuntu 8.04
 #
 #    This program is free software; you can redistribute it and/or modify
@@ -75,19 +75,19 @@ gettext.bindtextdomain(domain, LOCALEDIR)
 
 datadir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "share", "linuxcnc","stepconf")
 main_datadir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "share", "linuxcnc")
-wizard = os.path.join(datadir, "linuxcnc-wizard.gif")
+wizard = os.path.join(datadir, "machinekit-wizard.gif")
 if not os.path.isfile(wizard):
-    wizard = os.path.join(main_datadir, "linuxcnc-wizard.gif")
+    wizard = os.path.join(main_datadir, "machinekit-wizard.gif")
 if not os.path.isfile(wizard):
-    print "cannot find linuxcnc-wizard.gif, looked in %s and %s" % (datadir, main_datadir)
+    print "cannot find machinekit-wizard.gif, looked in %s and %s" % (datadir, main_datadir)
     sys.exit(1)
 
 icondir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
-linuxcncicon = os.path.join(icondir, "linuxcncicon.png")
+linuxcncicon = os.path.join(icondir, "machinekiticon.png")
 if not os.path.isfile(linuxcncicon):
-    linuxcncicon = os.path.join("/etc/linuxcnc/linuxcnc-wizard.gif")
+    linuxcncicon = os.path.join("/etc/linuxcnc/machinekit-wizard.gif")
 if not os.path.isfile(linuxcncicon):
-    linuxcncicon = os.path.join("/usr/share/linuxcnc/linuxcncicon.png")
+    linuxcncicon = os.path.join("/usr/share/linuxcnc/machinekiticon.png")
 
 distdir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "configs", "common")
 if not os.path.isdir(distdir):
@@ -111,7 +111,7 @@ def makedirs(d):
         os.makedirs(d)
     except os.error, detail:
         if detail.errno != errno.EEXIST: raise
-makedirs(os.path.expanduser("~/linuxcnc/configs"))
+makedirs(os.path.expanduser("~/machinekit/configs"))
 
 def md5sum(filename):
     try:
@@ -147,7 +147,8 @@ class Private_Data:
                             ["oem750", _("Parker-Compumotor oem750"), 1000, 1000, 1000, 200000],
                             ["jvlsmd41", _("JVL-SMD41 or 42"), 500, 500, 2500, 2500],
                             ["hobbycnc", _("Hobbycnc Pro Chopper"), 2000, 2000, 2000, 2000],
-                            ["keling", _("Keling 4030"), 5000, 5000, 20000, 20000],
+                            ["kelling", _("Kelling 4030"), 5000, 5000, 20000, 20000],
+                            ["Leadshine", _("Leadshine Series"), 5000, 5000, 20000, 20000]
                             ]
 
         (   self.XSTEP, self.XDIR, self.YSTEP, self.YDIR,
@@ -222,8 +223,8 @@ class Private_Data:
         self.MESS_PYVCP_REWRITE =_("OK to replace existing custom pyvcp panel and custom_postgui.hal file ?\nExisting custompanel.xml and custom_postgui.hal will be renamed custompanel_backup.xml and postgui_backup.hal.\nAny existing file named custompanel_backup.xml and custom_postgui.hal will be lost. ")
         self.MESS_ABORT = _("Quit Stepconf and discard changes?")
         self.MESS_QUIT = _("The configuration has been built and saved.\nDo you want to quit?")
-        self.MESS_NO_REALTIME = _("You are using a simulated-realtime version of LinuxCNC, so testing / tuning of hardware is unavailable.")
-        self.MESS_KERNEL_WRONG = _("You are using a realtime version of LinuxCNC but didn't load a realtime kernel so testing / tuning of hardware is\
+        self.MESS_NO_REALTIME = _("You are using a simulated-realtime version of Machinekit, so testing / tuning of hardware is unavailable.")
+        self.MESS_KERNEL_WRONG = _("You are using a realtime version of Machinekit but didn't load a realtime kernel so testing / tuning of hardware is\
                  unavailable.\nThis is possibly because you updated the OS and it doesn't automatically load the RTAI kernel anymore.\n"+
             "You are using the  %(actual)s  kernel.\nYou need to use kernel:")% {'actual':os.uname()[2]}
 
@@ -237,7 +238,7 @@ class Data:
         #pw = pwd.getpwuid(os.getuid())
         self.createsymlink = True
         self.createshortcut = True
-        self.sim_hardware = True
+        self.sim_hardware = False
         self._lastconfigname= ""
         self._chooselastconfig = True
         self._preference_version = 1.0
@@ -253,7 +254,7 @@ class Data:
         self.latency = 15000
         self.period = 25000
 
-        self.ioaddr = "0x378"
+        self.ioaddr = "0"
         self.ioaddr2 = "1"
         self.pp2_direction = 0 # output
         self.ioaddr3 = "2"
@@ -616,11 +617,11 @@ class Data:
         if self.classicladder: 
            if not self.laddername == "custom.clp":
                 filename = os.path.join(distdir, "configurable_options/ladder/%s" % self.laddername)
-                original = os.path.expanduser("~/linuxcnc/configs/%s/custom.clp" % self.machinename)
+                original = os.path.expanduser("~/machinekit/configs/%s/custom.clp" % self.machinename)
                 if os.path.exists(filename):     
                   if os.path.exists(original):
                      print "custom file already exists"
-                     shutil.copy( original,os.path.expanduser("~/linuxcnc/configs/%s/custom_backup.clp" % self.machinename) ) 
+                     shutil.copy( original,os.path.expanduser("~/machinekit/configs/%s/custom_backup.clp" % self.machinename) ) 
                      print "made backup of existing custom"
                   shutil.copy( filename,original)
                   print "copied ladder program to usr directory"
@@ -630,11 +631,11 @@ class Data:
 
         if self.pyvcp and not self.pyvcpname == "custompanel.xml":                
            panelname = os.path.join(distdir, "configurable_options/pyvcp/%s" % self.pyvcpname)
-           originalname = os.path.expanduser("~/linuxcnc/configs/%s/custompanel.xml" % self.machinename)
+           originalname = os.path.expanduser("~/machinekit/configs/%s/custompanel.xml" % self.machinename)
            if os.path.exists(panelname):     
                   if os.path.exists(originalname):
                      print "custom PYVCP file already exists"
-                     shutil.copy( originalname,os.path.expanduser("~/linuxcnc/configs/%s/custompanel_backup.xml" % self.machinename) ) 
+                     shutil.copy( originalname,os.path.expanduser("~/machinekit/configs/%s/custompanel_backup.xml" % self.machinename) ) 
                      print "made backup of existing custom"
                   shutil.copy( panelname,originalname)
                   print "copied PYVCP program to usr directory"
@@ -689,7 +690,7 @@ class Data:
             print >>file,"Exec=%s %s/%s.ini" \
                          % ( scriptspath, base, self.machinename )
             print >>file,"Type=Application"
-            print >>file,"Comment=" + _("Desktop Launcher for LinuxCNC config made by Stepconf")
+            print >>file,"Comment=" + _("Desktop Launcher for Machinekit config made by Stepconf")
             print >>file,"Icon=%s"% linuxcncicon
             file.close()
             # Ubuntu 10.04 require launcher to have execute permissions
@@ -755,8 +756,8 @@ class StepconfApp:
         window.show()
 
     def build_base(self):
-        base = os.path.expanduser("~/linuxcnc/configs/%s" % self.d.machinename)
-        ncfiles = os.path.expanduser("~/linuxcnc/nc_files")
+        base = os.path.expanduser("~/machinekit/configs/%s" % self.d.machinename)
+        ncfiles = os.path.expanduser("~/machinekit/nc_files")
         if not os.path.exists(ncfiles):
             makedirs(ncfiles)
             examples = os.path.join(BASE, "share", "linuxcnc", "ncfiles")
@@ -1108,7 +1109,7 @@ class StepconfApp:
             panel = "spindle.xml"
         if self.w.radiobutton8.get_active() == True:
             panel = "custompanel.xml"
-            panelname = os.path.expanduser("~/linuxcnc/configs/%s" % self.d.machinename)
+            panelname = os.path.expanduser("~/machinekit/configs/%s" % self.d.machinename)
         halrun = os.popen("cd %(panelname)s\nhalrun -Is > /dev/null"% {'panelname':panelname,}, "w" )    
         halrun.write("loadusr -Wn displaytest pyvcp -c displaytest %(panel)s\n" %{'panel':panel,})
         if self.w.radiobutton6.get_active() == True:
@@ -1124,14 +1125,14 @@ class StepconfApp:
         newfilename = os.path.join(distdir, "configurable_options/ladder/TEMP.clp")    
         self.d.modbus = self.w.modbus.get_active()
         self.halrun = halrun = os.popen("halrun -Is", "w")
+        halrun.write("newthread fast %d\n" % (50000))
+        halrun.write("newthread slow %d\n" % (1000000))
         halrun.write(""" 
-              loadrt threads period1=%(period)d name1=fast fp1=0 period2=1000000 name2=slow\n
               loadrt classicladder_rt numPhysInputs=%(din)d numPhysOutputs=%(dout)d numS32in=%(sin)d numS32out=%(sout)d\
                      numFloatIn=%(fin)d numFloatOut=%(fout)d\n
               addf classicladder.0.refresh slow\n
               start\n
                       """ % {
-                      'period': 50000,
                       'din': self.w.digitsin.get_value(),
                       'dout': self.w.digitsout.get_value(),
                       'sin': self.w.s32in.get_value(),
@@ -1152,7 +1153,7 @@ class StepconfApp:
             self.w.modbus.set_active(self.d.modbus)
         if self.w.radiobutton4.get_active() == True:
             self.d.laddername='custom.clp'
-            originalfile = filename = os.path.expanduser("~/linuxcnc/configs/%s/custom.clp" % self.d.machinename)
+            originalfile = filename = os.path.expanduser("~/machinekit/configs/%s/custom.clp" % self.d.machinename)
         else:
             filename = os.path.join(distdir, "configurable_options/ladder/"+ self.d.laddername)        
         if self.d.modbus == True: 
@@ -1225,11 +1226,12 @@ class StepconfApp:
              else: 
                 port2dir =" out"
         halrun.write( "loadrt hal_parport cfg=\"%s out%s%s%s%s\"\n" % (self.d.ioaddr, port2name, port2dir, port3name, port3dir))
+        halrun.write("newthread fast %d\n" % (period))
+        halrun.write("newthread slow %d\n" % (1000000))
         halrun.write("""
-            loadrt threads period1=%(period)d name1=fast fp1=0 period2=1000000 name2=slow
             addf stepgen.make-pulses fast
             addf parport.0.write fast
-            """%{'period': period})
+            """)
 
         if self.d.number_pports>1:
             halrun.write( "addf parport.0.write fast\n")

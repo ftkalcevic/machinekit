@@ -3,10 +3,7 @@ ifdef TARGET_PLATFORM_BEAGLEBONE
 # support for ARM335x PRU (Programmable Realtime Unit) components and
 SUPPORT_DIR := hal/support
 PRU_SRC_DIR := hal/drivers/hal_pru_generic
-PRU_MAINS   := pru_generic
-
-# The PRU assembler proper
-PASM := ../bin/pasm
+PRU_MAINS   := pru_generic pru_decamux
 
 # Assembly of PRU code
 # the list of assembly source files
@@ -41,7 +38,7 @@ PRU_DBGS := $(patsubst %,objects/%,$(patsubst %,$(PRU_SRC_DIR)/%.dbg,$(PRU_MAINS
 $(PRU_DEPS): objects/%.d : %.p
 	$(Q)mkdir -p $(dir $@)
 	$(ECHO) generate PRU dependency $@ from $<
-	$(Q)cpp -MM -MG -MT objects/$(patsubst %.p,%.bin,$<)  $< $@
+	$(Q)cpp -x c -MM -MG -MT objects/$(patsubst %.p,%.bin,$<) -o $@ $<
 
 objects/%.bin objects/%.dbg : %.p objects/%.d $(PASM)
 	$(Q)mkdir -p $(RTLIBDIR)
