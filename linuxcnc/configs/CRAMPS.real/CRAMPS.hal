@@ -350,12 +350,12 @@ setp hal_pru_generic.pwmgen.00.pwm_period       10000000
 
 # Bed Heater FET 1
 setp hal_pru_generic.pwmgen.00.out.00.pin       77
-setp hal_pru_generic.pwmgen.00.out.00.enable    1
+net emcmot.00.enable => hal_pru_generic.pwmgen.00.out.00.enable
 setp hal_pru_generic.pwmgen.00.out.00.value     0.0
 
 # E0 Heater FET 2
 setp hal_pru_generic.pwmgen.00.out.01.pin       80
-setp hal_pru_generic.pwmgen.00.out.01.enable    1
+net emcmot.00.enable => hal_pru_generic.pwmgen.00.out.01.enable 
 setp hal_pru_generic.pwmgen.00.out.01.value     0.0
 
 # E1 Heater FET 3
@@ -444,9 +444,9 @@ setp limit1.1.max 1.0
 #setp pid.0.bias    0.5  
 
 
-setp pid.0.Dgain    0
-setp pid.0.Igain    0.0025
-setp pid.0.Pgain    0.08
+setp pid.0.Dgain    0.13
+setp pid.0.Igain    0.0015
+setp pid.0.Pgain    0.05
 setp pid.0.bias     0
 setp pid.0.maxerrorI        500
 setp pid.0.maxoutput        1
