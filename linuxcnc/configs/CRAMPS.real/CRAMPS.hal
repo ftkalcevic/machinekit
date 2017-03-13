@@ -26,7 +26,10 @@ sets R 105.25
 
 
 # motion controller, get name and thread periods from ini file
-loadrt [EMCMOT]EMCMOT servo_period_nsec=[EMCMOT]SERVO_PERIOD num_joints=[TRAJ]AXES
+# trajectory planner
+loadrt tp
+loadrt [EMCMOT]EMCMOT servo_period_nsec=[EMCMOT]SERVO_PERIOD num_joints=[TRAJ]AXES tp=tp kins=lineardeltaprobekins
+#loadrt [EMCMOT]EMCMOT servo_period_nsec=[EMCMOT]SERVO_PERIOD num_joints=[TRAJ]AXES tp=tp kins=trivkins
 
 loadrt threads name1=heater-thread period1=10000000
 unloadrt threads
@@ -34,7 +37,7 @@ unloadrt threads
 # load low-level drivers
 loadrt hal_bb_gpio output_pins=116,122,123,124,125,126,214,223,225 input_pins=107,108,109,110,117,211,213
 loadrt [PRUCONF](DRIVER) prucode=$(HAL_RTMOD_DIR)/[PRUCONF](PRUBIN) [PRUCONF](CONFIG)
-loadrt pid num_chan=2 debug=1
+loadrt pid count=2 debug=1
 loadrt limit1 count=2
 loadrt at count=2
 loadrt and4 count=1

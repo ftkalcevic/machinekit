@@ -10,8 +10,10 @@
 #include "rtapi_app.h"      /* RTAPI realtime module decls */
 #include "hal.h"
 
+#define VTVERSION VTKINEMATICS_VERSION1
+
 struct haldata {
-    hal_float_t *r, *l; // lineardelta
+    hal_float_t *r, *l, *j0off, *j1off, *j2off;
 
     hal_bit_t *enable;
     hal_float_t *delta_z; // debugging - show last z correction
@@ -21,7 +23,6 @@ struct haldata {
 } *haldata;
 
 static void pk_update(void *h, long l);
-static int comp_id;
 static int shm_id;
 static int key = SHMEM_KEY;
 static mesh_struct *mp = 0;
@@ -148,7 +149,7 @@ int kinematicsForward(const double *joints,
 		      const KINEMATICS_FORWARD_FLAGS * fflags,
 		      KINEMATICS_INVERSE_FLAGS * iflags)
 {
-    set_geometry(*haldata->r, *haldata->l);
+    set_geometry(*haldata->r, *haldata->l, *haldata->j0off, *haldata->j1off, *haldata->j2off);
     kinematics_forward(joints,pos);
     if ( *(haldata->enable) )
         pos->tran.z -= z_correct( pos->tran.x, pos->tran.y );
@@ -160,7 +161,7 @@ int kinematicsInverse(const EmcPose * pos,
 		      const KINEMATICS_INVERSE_FLAGS * iflags,
 		      KINEMATICS_FORWARD_FLAGS * fflags)
 {
-    set_geometry(*haldata->r, *haldata->l);
+    set_geometry(*haldata->r, *haldata->l, *haldata->j0off, *haldata->j1off, *haldata->j2off);
     kinematics_inverse(pos, joints);
     if ( *(haldata->enable) )
     {
@@ -189,9 +190,16 @@ KINEMATICS_TYPE kinematicsType()
     return KINEMATICS_BOTH;
 }
 
-EXPORT_SYMBOL(kinematicsType);
-EXPORT_SYMBOL(kinematicsForward);
-EXPORT_SYMBOL(kinematicsInverse);
+static vtkins_t vtk = {
+    .kinematicsForward = kinematicsForward,
+    .kinematicsInverse  = kinematicsInverse,
+    // .kinematicsHome = kinematicsHome,
+    .kinematicsType = kinematicsType
+};
+
+static int comp_id, vtable_id;
+static const char *name = "lineardeltaprobekins";
+
 RTAPI_MP_INT(size, "mesh buffer size")
 MODULE_LICENSE("GPL");
 
@@ -238,6 +246,15 @@ int rtapi_app_main(void)
     comp_id = hal_init("lineardeltaprobekins");
     if (comp_id < 0)
 	    return comp_id;
+
+    vtable_id = hal_export_vtable(name, VTVERSION, &vtk, comp_id);
+    if (vtable_id < 0) {
+	    rtapi_print_msg(RTAPI_MSG_ERR,
+			    "%s: ERROR: hal_export_vtable(%s,%d,%p) failed: %d\n",
+			    name, name, VTVERSION, &vtk, vtable_id );
+	    return -ENOENT;
+    }
+
     rtapi_print_msg(RTAPI_MSG_DBG, "lineardeltaprobekins shmsize=%d comp_id=%d\n",
 		            size, comp_id );
 
@@ -277,9 +294,20 @@ int rtapi_app_main(void)
         res = hal_pin_float_newf(HAL_IN, &haldata->l, comp_id, "lineardeltaprobekins.L");
 	    if (res < 0) break;
 
+        res = hal_pin_float_newf(HAL_IN, &haldata->j0off, comp_id, "lineardeltakins.J0off");
+	    if (res < 0) break;
+        res = hal_pin_float_newf(HAL_IN, &haldata->j1off, comp_id, "lineardeltakins.J1off");
+	    if (res < 0) break;
+        res = hal_pin_float_newf(HAL_IN, &haldata->j2off, comp_id, "lineardeltakins.J2off");
+	    if (res < 0) break;
+
+
         *haldata->r = DELTA_RADIUS;
         *haldata->l = DELTA_DIAGONAL_ROD;
-
+	    *haldata->j0off = JOINT_0_OFFSET;
+	    *haldata->j1off = JOINT_1_OFFSET;
+	    *haldata->j2off = JOINT_2_OFFSET;
+    
         res =  hal_export_funct("pkupdate", pk_update,  NULL, 1, 0, comp_id);
 	    if (res < 0) break;
 

@@ -119,6 +119,6 @@ TARGETS += ../lib/libinterpbaseclass.so.0 ../lib/libinterpbaseclass.so
 	$(ECHO) Linking $(notdir $@)
 	@mkdir -p ../lib
 	@rm -f $@
-	$(CXX) -g $(LDFLAGS) -Wl,-soname,$(notdir $@) -shared -o $@ $^ -lstdc++ $(BOOST_PYTHON_LIBS) -l$(LIBPYTHON)
+	$(CXX) -g $(LDFLAGS) -Wl,-soname,$(notdir $@) -shared -o $@ $^ -lstdc++ -l$(BOOST_PYTHON_LIB) $(PYTHON_LIBS) -ldl
 
 
